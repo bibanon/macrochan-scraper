@@ -38,9 +38,9 @@ The algorithm for generating the final offset (from the number of images) is:
     # example
     finalOffset = 45175 - (45175 % 20) # = 45160
 
-Once we have a list of all the offset pages, we need to extract the image view URLs from it. `search.php` uses Javascript to recieve it's URL lists, so we will need to obtain a static version of the 
+Once we have a list of all the offset pages, we need to extract the image view URLs from it. `search.php` uses Javascript to recieve it's URL lists, so we will need to obtain a static HTML version of each view, using the following Bash + Wget script.
 
-We will use Python's BeautifulSoup library to scrape the image view URLs.
+We will then use [Python's BeautifulSoup library](http://www.pythonforbeginners.com/beautifulsoup/web-scraping-with-beautifulsoup) to scrape the image view URLs.
 
 ### Obtaining the images
 
