@@ -22,6 +22,7 @@ To get a list of every single image, rather than just one tag, just go straight 
 
 This will give you a page browsing system that will show all 45,175 images in the collection, 20 files at a time. The offset will increment by 20 each time.
 
+    https://macrochan.org/search.php?&offset=0
     https://macrochan.org/search.php?&offset=20
     https://macrochan.org/search.php?&offset=40
 
@@ -29,7 +30,7 @@ As of 2015-03-22, since there are 45,175 images, the last page is:
 
     https://macrochan.org/search.php?&offset=45160
 
-We simply need to make a list of numbers incremented by 20, all the way up to the final offset, and attach the URL `https://macrochan.org/search.php?&offset=` to the beginning.
+We simply need to make a list of numbers incremented by 20, all the way up to the final offset, and attach the URL `https://macrochan.org/search.php?&offset=` to the beginning. A for loop with a python script would work nicely.
 
 The algorithm for generating the final offset (from the number of images) is:
 
@@ -37,11 +38,13 @@ The algorithm for generating the final offset (from the number of images) is:
     # example
     finalOffset = 45175 - (45175 % 20) # = 45160
 
-Then, we save all of these pages, and then parse them to obtain a list of the image URLs.
+Once we have a list of all the offset pages, we need to extract the image view URLs from it. `search.php` uses Javascript to recieve it's URL lists, so we will need to obtain a static version of the 
+
+We will use Python's BeautifulSoup library to scrape the image view URLs.
 
 ### Obtaining the images
 
-Once we've obtained the image URLs, we need to download the image itself, and then the tags on the image.
+Now that we've obtained the image view URLs, we need to download the image itself, and then the tags on the image.
 
 First, an image URL has the following format:
 
