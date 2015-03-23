@@ -20,6 +20,7 @@
 import json
 import os
 import time
+import sqlite3
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
 from ghost import Ghost
@@ -42,6 +43,7 @@ if __name__ == '__main__':
 	img_down_url = "https://macrochan.org/images/%s/%s/%s"
 	id_fname = os.path.join(workdir, 'img_ids.txt')			# filename of img_ids
 	img_url_fname = os.path.join(workdir, 'img_urls.txt')		# filename of img_urls
+	db_fname = os.path.join(workdir, 'macrochan.db' )		# filename of database
 	delay = 5		# currently set to 5 seconds by default
 	offset = 20
 	
@@ -49,6 +51,34 @@ if __name__ == '__main__':
 	with open(img_url_fname, 'w') as url_file:
 		url_file.write("")
 	
+	# create a database to store macrochan data
+	conn = sqlite3.connect(db_fname)
+	c = conn.cursor()
+
+	# enable foreign key support
+	c.execute('''PRAGMA foreign_keys = ON''')
+
+	# create `images` table
+	c.execute('''CREATE TABLE images (
+	  imageid text PRIMARY KEY,
+	  imageext text,
+	  imageurl text,
+	  imageview text
+	)''')
+
+	# create tags table
+	c.execute('''CREATE TABLE tags (
+	  tagname text PRIMARY KEY
+	)''')
+
+	# create linking table
+	c.execute('''CREATE TABLE taglink (
+	  imageid text,
+	  tagname text,
+	  FOREIGN KEY(imageid) REFERENCES images(imageid)
+	  FOREIGN KEY(tagname) REFERENCES tags(tagname)
+	)''')
+
 	# read each img_id from the img_ids text file
 	with open(id_fname, 'r') as f:
 		for line in f:
@@ -127,6 +157,32 @@ if __name__ == '__main__':
 			with open(json_path, 'w') as json_file:
 				json_file.write(json.dumps(json_data, sort_keys=True, indent=2, separators=(',', ': ')))
 			
+			# insert image data into database
+			list = [img_id, img_ext, img_url, view_url]
+			c.execute('INSERT INTO images (imageid, imageext, imageurl, imageview) VALUES (?,?,?,?)', list)
+
+			# insert tag data into database
+			# OR IGNORE used to avoid duplicating tags, since we will encounter them many times 
+			for tag in tags:
+				list = [tag]
+				c.execute('INSERT OR IGNORE INTO tags VALUES (?)', list)
+
+			# link current images to many tags
+			for tag in tags:
+				list = [img_id, tag]
+				c.execute('INSERT INTO taglink (imageid, tagname) VALUES (?,?)', list)
+
+			# display all linking table data for current image entry
+			list = [img_id]
+			for row in c.execute('SELECT imageid, tagname FROM taglink WHERE imageid = ? ORDER BY tagname', list):
+			        print(row)
+
+			# Save (commit) the database changes
+			conn.commit()
+
 			# delay before next iteration
 			print("Waiting for %d seconds..." % delay)
 			time.sleep(delay)
+
+		# close sqlite database
+		conn.close()

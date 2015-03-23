@@ -107,7 +107,56 @@ After downloading the image itself, we need to create an accompanying JSON metad
 ]
 ```
 
-We should also put this data into a `.sqlite` database for convenient viewing.
+We should also put this data into a `.sqlite` database for convenient viewing. This will require an `images` table storing ImageID and file extensions, and a `tags` table storing TagName and TagURL. It will also require a linking table `taglink`, to match many ImageIDs to many Tags. 
+
+Make sure to enable foreign key support:
+
+```python
+# enable foreign key support
+c.execute('''PRAGMA foreign_keys = ON''')
+```
+
+```sqllite
+CREATE TABLE images (
+  imageid text PRIMARY KEY,
+  imageext text,
+  imageurl text,
+  imageview text
+)
+```
+
+```python
+list = [img_id, img_ext, img_url, view_url]
+c.execute('INSERT INTO images (imageid, imageext, imageurl, imageview) VALUES (?,?,?,?)', list)
+```
+
+```sqllite
+CREATE TABLE tags (
+  tagname text PRIMARY KEY
+)
+```
+
+```python
+# OR IGNORE used to avoid duplicating tags, since we will encounter them many times
+for tag in tags:
+  list = [tag]
+  c.execute('INSERT OR IGNORE INTO tags VALUES (?)', list)
+```
+
+```sqllite
+CREATE TABLE taglink (
+  imageid text,
+  tagname text,
+  FOREIGN KEY(imageid) REFERENCES images(imageid)
+  FOREIGN KEY(tagname) REFERENCES tags(tagname)
+)
+```
+
+```python
+for tag in tags:
+  list = [img_id, tag]
+  c.execute('INSERT INTO taglink (imageid, tagname) VALUES (?,?)', list)
+```
 
 ## The Tag Cloud
 

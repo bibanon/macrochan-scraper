@@ -1,29 +1,83 @@
 import sqlite3
 
 # connect to database and create cursor
-conn = sqlite3.connect('images.db')
+conn = sqlite3.connect('macrochan.db')
 c = conn.cursor()
 
+# enable foreign key support
+c.execute('''PRAGMA foreign_keys = ON''')
+
 # Create table
-c.execute('''CREATE TABLE images
-             (imageid text primary key not null, image-ext text, image-url text, image-view text, price real)''')
+c.execute('''CREATE TABLE images (
+  imageid text PRIMARY KEY,
+  imageext text,
+  imageurl text,
+  imageview text
+)''')
 
-# Insert a row of data
-c.execute("INSERT INTO images VALUES ('2006-01-05','BUY','RHAT',100,35.14)")
-
-# Larger example
-for t in [('2006-03-28', 'BUY', 'IBM', 1000, 45.00),
-          ('2006-04-05', 'BUY', 'MSOFT', 1000, 72.00),
-          ('2006-04-06', 'SELL', 'IBM', 500, 53.00),
-         ]:
-    c.execute('INSERT INTO images VALUES (?,?,?,?,?)', t)
 
 # insert just one list
-list = ['6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU', '.jpeg', 'https://macrochan.org/images/6/E/6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU.jpeg', 'https://macrochan.org/view.php?u=6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU', 50.00]
-c.execute('INSERT INTO images VALUES (?,?,?,?,?)', list)
+list = ['6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU', '.jpeg', 'https://macrochan.org/images/6/E/6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU.jpeg', 'https://macrochan.org/view.php?u=6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU']
+c.execute('INSERT INTO images (imageid, imageext, imageurl, imageview) VALUES (?,?,?,?)', list)
+
+# insert another list
+list = ['3324LOI4WONSJVHJO5CI6NVPFPQIDOAN', '.jpeg', 'https://macrochan.org/images/3/3/3324LOI4WONSJVHJO5CI6NVPFPQIDOAN.jpeg', 'https://macrochan.org/view.php?u=3324LOI4WONSJVHJO5CI6NVPFPQIDOAN']
+c.execute('INSERT INTO images (imageid, imageext, imageurl, imageview) VALUES (?,?,?,?)', list)
 
 # retrieve data
-for row in c.execute('SELECT * FROM images ORDER BY price'):
+for row in c.execute('SELECT * FROM images ORDER BY imageid'):
+        print(row)
+
+# create tags table
+c.execute('''CREATE TABLE tags (
+  tagname text PRIMARY KEY
+)''')
+
+# insert data into tags table
+tags = ['Screenshots', 'Cat', 'Longcat', 'Motivational Poster']
+for tag in tags:
+  list = [tag]
+  c.execute('INSERT INTO tags VALUES (?)', list)
+
+# retrieve data
+for row in c.execute('SELECT * FROM tags ORDER BY tagname'):
+        print(row)
+
+# create linking table
+c.execute('''CREATE TABLE taglink (
+  imageid text,
+  tagname text,
+  FOREIGN KEY(imageid) REFERENCES images(imageid)
+  FOREIGN KEY(tagname) REFERENCES tags(tagname)
+)''')
+
+# add tags 
+for tag in tags:
+  list = ['6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU', tag]
+  c.execute('INSERT INTO taglink (imageid, tagname) VALUES (?,?)', list)
+
+# add tags for second image
+tags = ['Motivational Poster']
+for tag in tags:
+  list = ['3324LOI4WONSJVHJO5CI6NVPFPQIDOAN', tag]
+  c.execute('INSERT INTO taglink (imageid, tagname) VALUES (?,?)', list)
+
+# attempt to violate foreign key support with bad tag
+tags = ['lulz']
+for tag in tags:
+  list = ['3324LOI4WONSJVHJO5CI6NVPFPQIDOAN', tag]
+  c.execute('INSERT INTO taglink (imageid, tagname) VALUES (?,?)', list)
+
+# retrieve data
+for row in c.execute('SELECT * FROM taglink ORDER BY tagname'):
+        print(row)
+
+print()
+
+# display all data for one image entry
+img_id = '6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU'
+list = [img_id]
+for row in c.execute('SELECT imageid, tagname FROM taglink WHERE imageid = ? ORDER BY tagname', list):
         print(row)
 
 # Save (commit) the changes
