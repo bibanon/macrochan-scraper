@@ -81,12 +81,12 @@ if __name__ == '__main__':
 
 	# read each img_id from the img_ids text file
 	with open(id_fname, 'r') as f:
-		for line in f:
+		for index, line in enumerate(f):
 			# strip all whitespace/newlines from line
 			img_id = line.rstrip()
 
 			# inform user of progress
-			print("Obtaining Image Download URL:", view_url % img_id)
+			print("Obtaining Image Download URL # %d:" % index + 1, view_url % img_id)
 
 			# set URL by img_id
 			url = view_url % img_id
