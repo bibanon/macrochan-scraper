@@ -88,23 +88,26 @@ However, this gives you the full HTML page, rather than just the image itself. Y
     # example
     https://macrochan.org/images/F/C/FCKU54O3VGXCPJMQ5RNSZ7P7ZRQBBL4F.jpeg
 
-In fact, we should probably replicate the practice of storing files under nested folders by 1st ID character and 2nd ID character, since it is easy to generate and reduces the strain on file explorers of having to display over 40,000 images at once.
+In fact, we should probably replicate the practice of storing files under nested folders by 1st ID character and 2nd ID character (e.g. `/F/C/` for `FCKU54...`), since it is easy to generate and reduces the strain on file explorers of having to display over 40,000 images at once.
 
-After downloading the image itself, we need to create an accompanying JSON metadata file to store source URL and all tags used. We'll probably use the format `<image-ID>.json`. The format will probably be as follows (escape all double quotes in the tags):
+After downloading the image itself, we need to create an accompanying JSON metadata file to store source URL and all tags used. We'll use the filename `<image-ID>.json`. The format will be as follows:
 
 ```json
-{
-  "image-id": "FCKU54O3VGXCPJMQ5RNSZ7P7ZRQBBL4F",
-  "image-ext": ".jpeg",
-  "image-view": "https://macrochan.org/view.php?u=FCKU54O3VGXCPJMQ5RNSZ7P7ZRQBBL4F",
-  "image-url": "https://macrochan.org/images/F/C/FCKU54O3VGXCPJMQ5RNSZ7P7ZRQBBL4F.jpeg",
-  "tags": [
-    "screenshots",
-    "motivational image",
-    "When you see it, you'll shit bricks"
-  ]
-}
+[
+  {
+    "image-ext": ".jpeg",
+    "image-id": "6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU",
+    "image-url": "https://macrochan.org/images/6/E/6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU.jpeg",
+    "image-view": "https://macrochan.org/view.php?u=6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU",
+    "tags": [
+      "Screencap",
+      "The Next Generation"
+    ]
+  }
+]
 ```
+
+We should also put this data into a `.sqlite` database for convenient viewing.
 
 ## The Tag Cloud
 
@@ -114,7 +117,7 @@ One of Macrochan's most important aspects is it's tagging system. Each image is 
 
 While we will be saving individual image tags one by one, it might be advantageous to have a pregenerated list of all images that fit that tag.
 
-To obtain the tag tree, we should save the HTML page and convert it to Markdown "tag-tree.md" with this kind of structure: (YAML won't work due to it's complicated, and not relationally matched tag cloud)
+To obtain the tag tree, we should save the HTML page and convert it to Markdown "tag-tree.md" with this kind of structure: (JSON won't work due to it's complicated, and not relationally matched tag cloud)
 
 ```markdown
 * #Type
@@ -132,4 +135,12 @@ To obtain the tag tree, we should save the HTML page and convert it to Markdown 
   * Papercraft
 ```
 
-Then, we grab all the tags from every image's YAML file, and make a list of all filenames that fit a certain tag. (we could grab the links from the site, but that requires offsets, takes time, and uses up server bandwidth)
+We should probably make a pandoc bash script to do this in one go. Might as well grab [the news page](http://macrochan.org/news.php) as well.
+
+### Tag Inheritance
+
+As stated by the owner, one of the things he wanted to do was give tags inheritance. For example,
+
+### Tag List Generation
+
+Then, we grab all the tags from every image's JSON file, and make a list of all filenames that fit a certain tag. (we could grab the links from the site, but that requires offsets, takes time, and uses up server bandwidth)

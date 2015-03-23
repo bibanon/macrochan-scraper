@@ -20,6 +20,8 @@
 import json
 import os
 import time
+from urllib.parse import urlparse
+from urllib.parse import parse_qs
 from ghost import Ghost
 
 # save bandwidth by not loading images through ghost
@@ -38,9 +40,8 @@ if __name__ == '__main__':
 	site_url = "https://macrochan.org/search.php?&offset=%s"
 	view_url = "https://macrochan.org/view.php?u=%s"
 	img_down_url = "https://macrochan.org/images/%s/%s/%s"
-	id_fname = 'img_ids.txt'			# filename of img_ids
-	img_url_fname = 'img_urls.txt'		# filename of img_urls
-	img_amt = sys.argv[1]		# image amount is first argument
+	id_fname = os.path.join(workdir, 'img_ids.txt')			# filename of img_ids
+	img_url_fname = os.path.join(workdir, 'img_urls.txt')		# filename of img_urls
 	delay = 5		# currently set to 5 seconds by default
 	offset = 20
 	
@@ -50,10 +51,13 @@ if __name__ == '__main__':
 	
 	# read each img_id from the img_ids text file
 	with open(id_fname, 'r') as f:
-		for img_id in f:
+		for line in f:
+			# strip all whitespace/newlines from line
+			img_id = line.rstrip()
+
 			# inform user of progress
-			print("Obtaining Image Download URLs: " + str(i))
-			
+			print("Obtaining Image Download URL:", view_url % img_id)
+
 			# set URL by img_id
 			url = view_url % img_id
 
@@ -75,12 +79,16 @@ if __name__ == '__main__':
 									""")
 			
 			# open the file and save the link to it
+			img_url = ""		# storing first img_url for JSON dumping
+			img_ext = ""		# storing image file extension for JSON dumping
 			with open(img_url_fname, 'a') as url_file:
 				for line in img_urls[0]:
-					url_file.write("%s\n" % line)
+					img_url = line
+					temp_url, img_ext = os.path.splitext(img_url)
+					url_file.write("%s\n" % img_url)
 
 			# scrape tags from image view URL and dump to <image-id>.json
-			tags = ghost.evaluate("""
+			tag_urls = ghost.evaluate("""
 					var listRet = [];   // empty list
 					// grab all `<a href=>` tags with `tags`
 					var links = document.querySelectorAll("a[href*=tags]");
@@ -93,18 +101,32 @@ if __name__ == '__main__':
 					listRet;            // return list
 					""")
 			
+			# extract tag strings from tag urls
+			tags = []
+			for tag_url in tag_urls[0]:
+				tags.append(parse_qs(urlparse(tag_url).query)['tags'][0])	
+
 			# create folders to store JSON
-			img_dir = os.path.join(workdir, line[:1], line[1:2])
+			img_dir = os.path.join(workdir, img_id[:1], img_id[1:2])
 			mkdirs(img_dir)
-			json_path = os.path.join(img_dir, img_id + ".json")
+			json_fname = img_id + ".json"
+			json_path = os.path.join(img_dir, json_fname)
 			
 			# construct json for this image
-			json_data = [ { 'image-id':img_id, 'image-url':url, 'image-view':view_url % img_id, 'tags':tags} ]
+			json_data = [
+				  {
+				    "image-ext": img_ext,
+				    "image-id": img_id,
+				    "image-url": img_url,
+				    "image-view": view_url,
+				    "tags": tags
+				  }
+				]
 			
 			# save json to file
 			with open(json_path, 'w') as json_file:
 				json_file.write(json.dumps(json_data, sort_keys=True, indent=2, separators=(',', ': ')))
 			
 			# delay before next iteration
-			print("Waiting for " + delay + " seconds...")
+			print("Waiting for %d seconds..." % delay)
 			time.sleep(delay)
