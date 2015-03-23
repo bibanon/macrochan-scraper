@@ -38,9 +38,39 @@ The algorithm for generating the final offset (from the number of images) is:
     # example
     finalOffset = 45175 - (45175 % 20) # = 45160
 
-Once we have a list of all the offset pages, we need to extract the image view URLs from it. `search.php` uses Javascript to recieve it's URL lists, so we will need to obtain a static HTML version of each view, using the following Bash + Wget script.
+The amount of images that exist in the page can be found by checking the top of [the search query,](https://macrochan.org/search.php) or by parsing the following tag: 
 
-We will then use [Python's BeautifulSoup library](http://www.pythonforbeginners.com/beautifulsoup/web-scraping-with-beautifulsoup) to scrape the image view URLs.
+```html
+<br><center><div id=datebar>Showing 0-20 of 45175<a href="/search.php?&offset=20"> &gt;&gt; </a></div><BR></center>
+```
+
+Since `search.php` uses Javascript to make search queries, we will need to obtain a static HTML version of each view. We put together the Bash + Wget script `1-search-query.sh` to create a whole folder of these.
+
+Once we have a list of all the offset pages, we need to extract the image view URLs from it. [Ghost.py](http://jeanphix.me/Ghost.py/) will be necessary to make the Javascript run, and also allows us to execute handy Javascript functions such as `.querySelectorAll()`.
+
+The key is to extract any URL encased with the following tag:
+
+```html
+<a href='/view.php?u={{image-ID}}'>
+```
+
+We use the following Javascript code to grab the image ids:
+
+```js
+var listRet = [];   // empty list
+// grab all `<a href=>` tags with `view`
+var links = document.querySelectorAll("a[href*=view]");
+
+// regex to find img_ids
+var find_img_id = /^.+\?u=(.+)$/g;
+
+// loop to check every link
+for (var i=0; i<links.length; i++){
+	// only return img_ids
+	listRet.push(links[i].href.replace(find_img_id, "$1"));
+}
+listRet;            // return list
+```
 
 ### Obtaining the images
 
@@ -60,17 +90,20 @@ However, this gives you the full HTML page, rather than just the image itself. Y
 
 In fact, we should probably replicate the practice of storing files under nested folders by 1st ID character and 2nd ID character, since it is easy to generate and reduces the strain on file explorers of having to display over 40,000 images at once.
 
-After downloading the image itself, we need to create an accompanying YAML metadata file to store source URL and all tags used. We'll probably use the format `<image-ID>.yaml`. The format will probably be as follows (escape all double quotes in the tags):
+After downloading the image itself, we need to create an accompanying JSON metadata file to store source URL and all tags used. We'll probably use the format `<image-ID>.json`. The format will probably be as follows (escape all double quotes in the tags):
 
-```yaml
-image-id: "FCKU54O3VGXCPJMQ5RNSZ7P7ZRQBBL4F"
-image-ext: ".jpeg"
-image-view: "https://macrochan.org/view.php?u=FCKU54O3VGXCPJMQ5RNSZ7P7ZRQBBL4F"
-image-url: "https://macrochan.org/images/F/C/FCKU54O3VGXCPJMQ5RNSZ7P7ZRQBBL4F.jpeg"
-tags:
-    - "screenshots"
-    - "motivational image"
-    - "When you see it, you'll shit bricks"
+```json
+{
+  "image-id": "FCKU54O3VGXCPJMQ5RNSZ7P7ZRQBBL4F",
+  "image-ext": ".jpeg",
+  "image-view": "https://macrochan.org/view.php?u=FCKU54O3VGXCPJMQ5RNSZ7P7ZRQBBL4F",
+  "image-url": "https://macrochan.org/images/F/C/FCKU54O3VGXCPJMQ5RNSZ7P7ZRQBBL4F.jpeg",
+  "tags": [
+    "screenshots",
+    "motivational image",
+    "When you see it, you'll shit bricks"
+  ]
+}
 ```
 
 ## The Tag Cloud
