@@ -8,13 +8,13 @@
 # is an image database after all, it should be exported
 # into one.
 
-import sqlite3
+import os
 import time
+import sqlite3
 
-def mkdirs(path):
-	"""Make directory, if it doesn't exist."""
-	if not os.path.exists(path):
-		os.makedirs(path)
+# our own libraries
+from utils import *
+from sqlfuncs import *
 
 if __name__ == '__main__':
 	# current working directory
@@ -23,9 +23,14 @@ if __name__ == '__main__':
 	# filename of database
 	db_fname = os.path.join(workdir, 'macrochan.db')
 
+	# delete database if it already exists
+	try:
+		os.remove(db_fname)
+	except OSError:
+		pass
+
 	# create a database to store macrochan data
-	conn = sqlite3.connect(db_fname)
-	c = conn.cursor()
+	conn, c = connect(db_fname)
 
 	# enable foreign key support
 	c.execute('''PRAGMA foreign_keys = ON''')

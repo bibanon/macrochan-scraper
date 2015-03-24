@@ -216,10 +216,16 @@ The next step of the process is to put together the links to grab. by pumping of
 finaloffset = img_amt - (img_amt % offset)
 ```
 
-Once we have that, we use a typical for loop to make queries to the Macrochan Search system.
+First, we have to determine how many rows are currently in the SQLite database's `images` table (in case we are continuing where we left off). We do that with this SQL statement:
 
 ```python
-for i in range(0, img_amt, offset):
+c.execute("""SELECT MAX(rowid) FROM images""")
+```
+
+Once we have that, we use a typical for loop to make queries to the Macrochan Search system. 
+
+```python
+for i in range(0, finaloffset + 1, offset):
 ```
 
 But when obtaining the HTML, we encounter a dilemma. The server sends over HTML pages which generates the image gallery using Javascript. This is a big issue, since it requires an entire Javascript engine (like on your hulking browser) to generate, more than what `requests` or `urllib` can provide.

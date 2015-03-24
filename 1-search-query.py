@@ -19,7 +19,12 @@ import json
 import os
 import sys
 import time
+import sqlite3
 from ghost import Ghost
+
+# our own libraries
+from utils import *
+from sqlfuncs import *
 
 # save bandwidth by not loading images through ghost
 ghost = Ghost(download_images=False)
@@ -44,6 +49,7 @@ if __name__ == '__main__':
 	view_url = "https://macrochan.org/view.php?u=%s"
 	img_down_url = "https://macrochan.org/images/%s/%s/%s"
 	id_path = os.path.join(workdir, 'img_ids.txt')			# filename of img_ids
+	db_fname = os.path.join(workdir, 'macrochan.db' )		# filename of database
 	img_amt = int(sys.argv[1])			# image amount is first argument
 	delay = 5		# currently set to 5 seconds by default
 	offset = 20
@@ -52,12 +58,20 @@ if __name__ == '__main__':
 	#   finalOffset = numOfImages - (numOfImages % 20)
 	finaloffset = img_amt - (img_amt % offset)
 
-	# create a new file to store ids
-	with open(id_path, 'w') as id_file:
-		id_file.write("")
+	# connect to the database to store image metadata
+	conn = sqlite3.connect(db_fname)
+	c = conn.cursor()
+
+	# determine amount of rows in table, and calculate first offset
+	# should be 0 for empty database
+	c.execute('SELECT COUNT(*) FROM {}'.format("images"))
+	count = c.fetchall()
+	row_amt = count[0][0]
+	print("Table 'images' has {} rows.".format(row_amt))
+	firstoffset = row_amt - (row_amt % offset)
 
 	# Make search queries and place image IDs in list
-	for i in range(0, img_amt, offset):				# for loop, jumps by offset
+	for i in range(firstoffset, finaloffset + 1, offset):				# for loop, jumps by offset
 		# set URL by offset
 		url = site_url % str(i)
 		
@@ -83,16 +97,19 @@ if __name__ == '__main__':
 								}
 								listRet;            // return list
 								""")
-
-		# 1c. Dump image view URLs and image download URLs to text file
-
-		# open the file and save links to it
-		with open(id_path, 'a') as id_file:
-			for line in img_ids[0]:
-				id_file.write("%s\n" % line)
 			
+		# save all image ids to the database
+		for img_id in img_ids[0]:
+			# we don't know imageext or imageurl yet, so send NULL
+			list = [img_id, None, None, view_url % img_id]
+			c.execute('INSERT OR IGNORE INTO images (imageid, imageext, imageurl, imageview) VALUES (?,?,?,?)', list)
+		# save changes to database when finished
+		conn.commit()
+
 		# delay before next iteration
 		print("Waiting for " + str(delay) + " seconds...")
 		time.sleep(delay)
 	
+	# close the database at the end of loop
+	c.close()
 	print("Dump complete. Now run 2-list-image-urls.py .")
