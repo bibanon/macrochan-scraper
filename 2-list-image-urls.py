@@ -21,6 +21,7 @@ import json
 import os
 import time
 import sqlite3
+import requests
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
 from ghost import Ghost
@@ -32,6 +33,27 @@ def mkdirs(path):
 	"""Make directory, if it doesn't exist."""
 	if not os.path.exists(path):
 		os.makedirs(path)
+
+def download_file(local_filename, url, clobber=False):
+	"""Download the given file. Clobber overwrites file if exists."""
+	dir_name = os.path.dirname(local_filename)
+	mkdirs(dir_name)
+
+	if clobber or not os.path.exists(local_filename):
+		i = requests.get(url)
+
+		# if not exists
+		if i.status_code == 404:
+			print('Failed to download file:', local_filename, url)
+			return False
+
+		# write out in 1MB chunks
+		chunk_size_in_bytes = 1024*1024  # 1MB
+		with open(local_filename, 'wb') as local_file:
+			for chunk in i.iter_content(chunk_size=chunk_size_in_bytes):
+				local_file.write(chunk)
+
+	return True
 
 # Make a list of all image download links using img_ids
 if __name__ == '__main__':
@@ -51,33 +73,9 @@ if __name__ == '__main__':
 	with open(img_url_fname, 'w') as url_file:
 		url_file.write("")
 	
-	# create a database to store macrochan data
+	# connect to the database to store image metadata
 	conn = sqlite3.connect(db_fname)
 	c = conn.cursor()
-
-	# enable foreign key support
-	c.execute('''PRAGMA foreign_keys = ON''')
-
-	# create `images` table
-	c.execute('''CREATE TABLE images (
-	  imageid text PRIMARY KEY,
-	  imageext text,
-	  imageurl text,
-	  imageview text
-	)''')
-
-	# create tags table
-	c.execute('''CREATE TABLE tags (
-	  tagname text PRIMARY KEY
-	)''')
-
-	# create linking table
-	c.execute('''CREATE TABLE taglink (
-	  imageid text,
-	  tagname text,
-	  FOREIGN KEY(imageid) REFERENCES images(imageid)
-	  FOREIGN KEY(tagname) REFERENCES tags(tagname)
-	)''')
 
 	# read each img_id from the img_ids text file
 	with open(id_fname, 'r') as f:
@@ -159,7 +157,7 @@ if __name__ == '__main__':
 			
 			# insert image data into database
 			list = [img_id, img_ext, img_url, view_url]
-			c.execute('INSERT INTO images (imageid, imageext, imageurl, imageview) VALUES (?,?,?,?)', list)
+			c.execute('INSERT OR IGNORE INTO images (imageid, imageext, imageurl, imageview) VALUES (?,?,?,?)', list)
 
 			# insert tag data into database
 			# OR IGNORE used to avoid duplicating tags, since we will encounter them many times 
