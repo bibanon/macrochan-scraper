@@ -385,4 +385,28 @@ We need to create an accompanying JSON metadata file for each image to store sou
   }
 ]
 ```
+
+Here are the scripts we used to dump metadata to JSON. We used this before we moved to a SQLite database. 
+
+```python
+# create folders to store JSON
+img_dir = os.path.join(workdir, img_id[:1], img_id[1:2])
+mkdirs(img_dir)
+json_fname = img_id + ".json"
+json_path = os.path.join(img_dir, json_fname)
+
+# construct json for this image
+json_data = [
+	  {
+	    "image-ext": img_ext,
+	    "image-id": img_id,
+	    "image-url": img_url,
+	    "image-view": view_url,
+	    "tags": tags
+	  }
+	]
+
+# save json to file
+with open(json_path, 'w') as json_file:
+	json_file.write(json.dumps(json_data, sort_keys=True, indent=2, separators=(',', ': ')))
 ```

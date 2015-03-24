@@ -1,7 +1,14 @@
 import sqlite3
+import os
+
+# delete database if it already exists
+try:
+	os.remove('test.db')
+except OSError:
+	pass
 
 # connect to database and create cursor
-conn = sqlite3.connect('macrochan.db')
+conn = sqlite3.connect('test.db')
 c = conn.cursor()
 
 # enable foreign key support
@@ -34,7 +41,7 @@ c.execute('''CREATE TABLE tags (
 )''')
 
 # insert data into tags table
-tags = ['Screenshots', 'Cat', 'Longcat', 'Motivational Poster']
+tags = ['Screenshots', 'Cat', 'Longcat', 'Motivational Poster', 'lulz']
 for tag in tags:
   list = [tag]
   c.execute('INSERT INTO tags VALUES (?)', list)
@@ -59,14 +66,8 @@ for tag in tags:
 # add tags for second image
 tags = ['Motivational Poster']
 for tag in tags:
-  list = ['3324LOI4WONSJVHJO5CI6NVPFPQIDOAN', tag]
-  c.execute('INSERT INTO taglink (imageid, tagname) VALUES (?,?)', list)
+  c.execute('INSERT INTO taglink (imageid, tagname) VALUES (?,?)', ['3324LOI4WONSJVHJO5CI6NVPFPQIDOAN', tag])
 
-# attempt to violate foreign key support with bad tag
-tags = ['lulz']
-for tag in tags:
-  list = ['3324LOI4WONSJVHJO5CI6NVPFPQIDOAN', tag]
-  c.execute('INSERT INTO taglink (imageid, tagname) VALUES (?,?)', list)
 
 # retrieve data
 for row in c.execute('SELECT * FROM taglink ORDER BY tagname'):
@@ -74,11 +75,22 @@ for row in c.execute('SELECT * FROM taglink ORDER BY tagname'):
 
 print()
 
+# update one entry in taglink
+list = ["lulz", '6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU']
+c.execute("""UPDATE taglink SET tagname = ? WHERE imageid = ?""", list)
+
 # display all data for one image entry
 img_id = '6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU'
 list = [img_id]
 for row in c.execute('SELECT imageid, tagname FROM taglink WHERE imageid = ? ORDER BY tagname', list):
         print(row)
+
+
+# display first column of database
+c.execute('SELECT imageid FROM images ORDER BY rowid')
+data = c.fetchall()
+for row in data:
+	print(row[0])
 
 # Save (commit) the changes
 conn.commit()

@@ -14,7 +14,6 @@ import sqlite3
 
 # our own libraries
 from utils import *
-from sqlfuncs import *
 
 if __name__ == '__main__':
 	# current working directory
@@ -30,7 +29,8 @@ if __name__ == '__main__':
 		pass
 
 	# create a database to store macrochan data
-	conn, c = connect(db_fname)
+	conn = sqlite3.connect(db_fname)
+	c = conn.cursor()
 
 	# enable foreign key support
 	c.execute('''PRAGMA foreign_keys = ON''')

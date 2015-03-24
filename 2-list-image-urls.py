@@ -40,124 +40,114 @@ if __name__ == '__main__':
 	site_url = "https://macrochan.org/search.php?&offset=%s"
 	view_url = "https://macrochan.org/view.php?u=%s"
 	img_down_url = "https://macrochan.org/images/%s/%s/%s"
-	id_fname = os.path.join(workdir, 'img_ids.txt')			# filename of img_ids
-	img_url_fname = os.path.join(workdir, 'img_urls.txt')		# filename of img_urls
 	db_fname = os.path.join(workdir, 'macrochan.db' )		# filename of database
 	delay = 5		# currently set to 5 seconds by default
 	offset = 20
-	
-	# create a new file to store img download urls
-	with open(img_url_fname, 'w') as url_file:
-		url_file.write("")
 	
 	# connect to the database to store image 
 	conn = sqlite3.connect(db_fname)
 	c = conn.cursor()
 
-	# read each img_id from the img_ids text file
-	with open(id_fname, 'r') as f:
-		for index, line in enumerate(f):
-			# strip all whitespace/newlines from line
-			img_id = line.rstrip()
+	# sql query to obtain all imageids from database sorted by rowid
+	c.execute('SELECT imageid FROM images ORDER BY rowid')
+	data = c.fetchall()
 
-			# inform user of progress
-			print("Obtaining Image Download URL # %d:" % index + 1, view_url % img_id)
+	# determine amount of rows in table, and calculate where to stop
+	# should be 0 for empty database
+	c.execute('SELECT COUNT(*) FROM {}'.format("images"))
+	count = c.fetchall()
+	row_amt = count[0][0]
+	print("Table 'images' has {} rows.".format(row_amt))
+	stop = row_amt - (row_amt % offset)
 
-			# set URL by img_id
-			url = view_url % img_id
+	# determine amount of rows in table with imageext, and calculate where to start
+	# should be 0 at beginning
+	c.execute('SELECT COUNT(*) FROM images WHERE imageext IS NOT NULL')
+	count = c.fetchall()
+	row_amt = count[0][0]
+	print("Starting at {} on table 'images'.".format(row_amt))
+	start = row_amt - (row_amt % offset)
 
-			# open the webpage
-			page = ghost.open(url)
+	# read each img_id from the database
+	for index, row in enumerate(data):
+		# SQL queries are stored in tuples, only need first value 
+		img_id = row[0]
 
-			# retrieve all img links
-			img_urls = ghost.evaluate("""
-									var listRet = [];   // empty list
-									// grab all `<img src=>` tags with `view`
-									var links = document.querySelectorAll("img[src*=images]");
-									
-									// loop to check every link
-									for (var i=0; i<links.length; i++){
-										// return src= links
-										listRet.push(links[i].src);
-									}
-									listRet;            // return list
-									""")
-			
-			# open the file and save the link to it
-			img_url = ""		# storing first img_url for JSON dumping
-			img_ext = ""		# storing image file extension for JSON dumping
-			with open(img_url_fname, 'a') as url_file:
-				for line in img_urls[0]:
-					img_url = line
-					temp_url, img_ext = os.path.splitext(img_url)
-					url_file.write("%s\n" % img_url)
+		# inform user of progress
+		print("Obtaining Image Download URL # %d:" % index + 1, view_url % img_id)
 
-			# scrape tags from image view URL and dump to <image-id>.json
-			tag_urls = ghost.evaluate("""
-					var listRet = [];   // empty list
-					// grab all `<a href=>` tags with `tags`
-					var links = document.querySelectorAll("a[href*=tags]");
-					
-					// loop to check every link
-					for (var i=0; i<links.length; i++){
-						// return href= links
-						listRet.push(links[i].href);
-					}
-					listRet;            // return list
-					""")
-			
-			# extract tag strings from tag urls
-			tags = []
-			for tag_url in tag_urls[0]:
-				tags.append(parse_qs(urlparse(tag_url).query)['tags'][0])	
+		# set URL by img_id
+		url = view_url % img_id
 
-			# create folders to store JSON
-			img_dir = os.path.join(workdir, img_id[:1], img_id[1:2])
-			mkdirs(img_dir)
-			json_fname = img_id + ".json"
-			json_path = os.path.join(img_dir, json_fname)
-			
-			# construct json for this image
-			json_data = [
-				  {
-				    "image-ext": img_ext,
-				    "image-id": img_id,
-				    "image-url": img_url,
-				    "image-view": view_url,
-				    "tags": tags
-				  }
-				]
-			
-			# save json to file
-			with open(json_path, 'w') as json_file:
-				json_file.write(json.dumps(json_data, sort_keys=True, indent=2, separators=(',', ': ')))
-			
-			# insert image data into database
-			list = [img_id, img_ext, img_url, view_url]
-			c.execute('INSERT OR IGNORE INTO images (imageid, imageext, imageurl, imageview) VALUES (?,?,?,?)', list)
+		# open the webpage
+		page = ghost.open(url)
 
-			# insert tag data into database
-			# OR IGNORE used to avoid duplicating tags, since we will encounter them many times 
-			for tag in tags:
-				list = [tag]
-				c.execute('INSERT OR IGNORE INTO tags VALUES (?)', list)
+		# retrieve all img links
+		img_urls = ghost.evaluate("""
+								var listRet = [];   // empty list
+								// grab all `<img src=>` tags with `view`
+								var links = document.querySelectorAll("img[src*=images]");
+								
+								// loop to check every link
+								for (var i=0; i<links.length; i++){
+									// return src= links
+									listRet.push(links[i].src);
+								}
+								listRet;            // return list
+								""")
+		
+		# open the file and save the link to it
+		img_url = ""		# storing first img_url for JSON dumping
+		img_ext = ""		# storing image file extension for JSON dumping
+		with open(img_url_fname, 'a') as url_file:
+			for line in img_urls[0]:
+				img_url = line
+				temp_url, img_ext = os.path.splitext(img_url)
+				url_file.write("%s\n" % img_url)
 
-			# link current images to many tags
-			for tag in tags:
-				list = [img_id, tag]
-				c.execute('INSERT INTO taglink (imageid, tagname) VALUES (?,?)', list)
+		# scrape tags from image view URL and dump to <image-id>.json
+		tag_urls = ghost.evaluate("""
+				var listRet = [];   // empty list
+				// grab all `<a href=>` tags with `tags`
+				var links = document.querySelectorAll("a[href*=tags]");
+				
+				// loop to check every link
+				for (var i=0; i<links.length; i++){
+					// return href= links
+					listRet.push(links[i].href);
+				}
+				listRet;            // return list
+				""")
+		
+		# extract tag strings from tag urls
+		tags = []
+		for tag_url in tag_urls[0]:
+			tags.append(parse_qs(urlparse(tag_url).query)['tags'][0])	
+		
+		# add img_ext and img_url to current img_id in database
+		list = [img_ext, img_url, img_id]
+		c.execute("""UPDATE images SET imageext = ?, imageurl = ? WHERE imageid = ?""", list)
 
-			# display all linking table data for current image entry
-			list = [img_id]
-			for row in c.execute('SELECT imageid, tagname FROM taglink WHERE imageid = ? ORDER BY tagname', list):
-			        print(row)
+		# insert tag data into database
+		# OR IGNORE used to avoid duplicating tags
+		for tag in tags:
+			c.execute('INSERT OR IGNORE INTO tags VALUES (?)', [tag])
 
-			# Save (commit) the database changes
-			conn.commit()
+		# link current images to many tags
+		# OR IGNORE used to avoid duplicating taglinks
+		for tag in tags:
+			c.execute('INSERT OR IGNORE INTO taglink (imageid, tagname) VALUES (?,?)', [img_id, tag])
 
-			# delay before next iteration
-			print("Waiting for %d seconds..." % delay)
-			time.sleep(delay)
+		# display all linking table data for current image entry
+		for row in c.execute('SELECT imageid, tagname FROM taglink WHERE imageid = ? ORDER BY tagname', [img_id]):
+		        print(row)
 
-		# close sqlite database
-		conn.close()
+		# Save (commit) the database changes
+		conn.commit()
+
+		# delay before next iteration
+		print("Waiting for %d seconds..." % delay)
+		time.sleep(delay)
+
+	# close sqlite database once finished
+	conn.close()
