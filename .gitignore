@@ -1,3 +1,4 @@
 macrochan-dump-*
 *~
 __pycache__
+*.pyc

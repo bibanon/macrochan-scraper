@@ -20,16 +20,19 @@ import os
 import sys
 import time
 import sqlite3
-import re
-from urllib.parse import urlparse
-from urllib.parse import parse_qs
-from robobrowser import RoboBrowser
+from ghost import Ghost
 
 # our own libraries
 from utils import *
+from sqlfuncs import *
 
-# create a robot browser
-browser = RoboBrowser(history=True)
+# save bandwidth by not loading images through ghost
+ghost = Ghost(download_images=False)
+
+def mkdirs(path):
+	"""Make directory, if it doesn't exist."""
+	if not os.path.exists(path):
+		os.makedirs(path)
 
 if __name__ == '__main__':
 	# check if an argument was given
@@ -69,26 +72,37 @@ if __name__ == '__main__':
 
 	# Make search queries and place image IDs in list
 	for i in range(firstoffset, finaloffset + 1, offset):				# for loop, jumps by offset
+		# set URL by offset
+		url = site_url % str(i)
+		
 		# inform user of progress, in which section
 		print("Downloading offset: %d-%d" % (i + 1, i + offset) )
 
-		# set URL by offset
-		url = site_url % str(i)
-
 		# open the webpage
-		browser.open(url)
+		page = ghost.open(url)
 
-		# beautifulsoup - find all <a href=> HTML tags that are views
-		view_regex = re.compile(r"view")
-		for anchor in browser.find_all('a'):
-			view_tag = anchor.get('href', '/')
-			if (re.search(view_regex, view_tag)):
-				# obtain img_id from `?u=`
-				img_id = parse_qs(urlparse(view_tag).query)['u'][0]
-				# we don't know imageext or imageurl yet, so send NULL
-				list = [img_id, None, None, view_url % img_id]
-				c.execute('INSERT OR IGNORE INTO images (imageid, imageext, imageurl, imageview) VALUES (?,?,?,?)', list)
+		# retrieve all imageview `view.php` links from the web page into python list
+		img_ids = ghost.evaluate("""
+								var listRet = [];   // empty list
+								// grab all `<a href=>` tags with `view`
+								var links = document.querySelectorAll("a[href*=view]");
 
+								// regex to find img_ids
+								var find_img_id = /^.+\?u=(.+)$/g;
+								
+								// loop to check every link
+								for (var i=0; i<links.length; i++){
+									// only return img_ids
+									listRet.push(links[i].href.replace(find_img_id, "$1"));
+								}
+								listRet;            // return list
+								""")
+			
+		# save all image ids to the database
+		for img_id in img_ids[0]:
+			# we don't know imageext or imageurl yet, so send NULL
+			list = [img_id, None, None, view_url % img_id]
+			c.execute('INSERT OR IGNORE INTO images (imageid, imageext, imageurl, imageview) VALUES (?,?,?,?)', list)
 		# save changes to database when finished
 		conn.commit()
 

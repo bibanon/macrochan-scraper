@@ -6,7 +6,7 @@ This is an effort by the Bibliotheca Anonoma to archive Macrochan, using custom 
 
 It might also be possible to adapt this scraping script to other Image/Flash Collection websites, such as Dagobah, or even SWFChan.
 
-## Step 1: Feasibility Study
+## Scraping Feasibility Study
 
 Usually, when we archive websites, we would use the ArchiveTeam's ArchiveBot, or Wget with WARC option enabled.
 
@@ -52,9 +52,7 @@ The amount of images that exist in the page can be found by checking the top of 
 <br><center><div id=datebar>Showing 0-20 of 45175<a href="/search.php?&offset=20"> &gt;&gt; </a></div><BR></center>
 ```
 
-Since `search.php` uses Javascript to make search queries, we will need to obtain a static HTML version of each view. We put together the Bash + Wget script `1-search-query.sh` to create a whole folder of these.
-
-Once we have a list of all the offset pages, we need to extract the image view URLs from it. [Ghost.py](http://jeanphix.me/Ghost.py/) will be necessary to make the Javascript run, and also allows us to execute handy Javascript functions such as `.querySelectorAll()`.
+Once we have a list of all the offset pages, we need to extract the image view URLs from it. We can use the handy Python libraries request and BeautifulSoup to scrape the HTML. Better yet, we can use the [RoboBrowser](https://github.com/jmcarp/robobrowser), which combines the two into a browser for robots.
 
 The key is to extract any URL encased with the following tag:
 
@@ -228,44 +226,7 @@ Once we have that, we use a typical for loop to make queries to the Macrochan Se
 for i in range(0, finaloffset + 1, offset):
 ```
 
-But when obtaining the HTML, we encounter a dilemma. The server sends over HTML pages which generates the image gallery using Javascript. This is a big issue, since it requires an entire Javascript engine (like on your hulking browser) to generate, more than what `requests` or `urllib` can provide.
-
-The only solution is to use a real browser, that uses the Webkit engine. But not just any browser: a scriptable, robot-commandable, API interface driven browser, such as PhantomJS, or Ghost.py. This isn`t as insane as it sounds: Ghost.py uses the handy Webkit engine provided by PyQt/PySide: which most Linux users probably have installed already.
-
-So, we first create a Ghost object, and save bandwidth by telling it not to download thumbnails that we won't use.
-
-```python
-# save bandwidth by not loading images through ghost
-ghost = Ghost(download_images=False)
-```
-
-We then use Ghost.py to open a website, inside the `for` loop:
-
-```python
-for i in range(0, img_amt, offset):
-	# open the webpage
-	page = ghost.open("https://macrochan.org/search.php?&offset=%d" % i)
-```
-
-Since Ghost.py can execute arbitrary Javascript as well, we use the following Javascript code with `.querySelectorAll()` to grab the image ids:
-
-```js
-// the output of this javascript is evaluated through ghost, and copied over to the list `img_ids` in Python.
-// img_ids = ghost.evaluate("""<insert javascript here>""")
-var listRet = [];   // empty list
-// grab all `<a href=>` tags with `view`
-var links = document.querySelectorAll("a[href*=view]");
-
-// regex to find img_ids
-var find_img_id = /^.+\?u=(.+)$/g;
-
-// loop to check every link
-for (var i=0; i<links.length; i++){
-	// only return img_ids
-	listRet.push(links[i].href.replace(find_img_id, "$1"));
-}
-listRet;            // return list to python as `img_ids` list
-```
+To obtain the image ids, we use [RoboBrowser](https://github.com/jmcarp/robobrowser), which combines Requests and BeautifulSoup into a browser for robot scrapers.
 
 Then, we dump the `img_ids` list into a flat file for the next program to access.
 
@@ -360,53 +321,29 @@ for tag in tags:
 for tag in tags:
   list = [img_id, tag]
   c.execute('INSERT OR IGNORE INTO taglink (imageid, tagname) VALUES (?,?)', list)
+```
 
 ### How to Continue a Dump using SQLite
 
-The SQLite database gives an additional advantage over flat files: it allows us to stop the dump, and continue later. This is critical when the connection is lost, or other bad stuff happens.
+The SQLite database gives an additional advantage over flat files: it allows us to stop the dump, and continue later. This is critical when the connection is lost, or the computer runs out of power.
 
-### Create JSON Metadata
+We use the following Python code to determine how many rows have already been committed successfully to a certain table, `images`.
 
-> **Note:** Now depreciated. Since we use a SQLite database, there is no need for flat file JSON metadata anymore, which can be difficult to update. If we do create a website in the future, just procedurally generate the JSON from the database, just like an API.
-
-We need to create an accompanying JSON metadata file for each image to store source URL, file extensions, and all tags. We'll use the filename `<image-ID>.json`. The format will be as follows:
-
-```json
-[
-  {
-    "image-ext": ".jpeg",
-    "image-id": "6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU",
-    "image-url": "https://macrochan.org/images/6/E/6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU.jpeg",
-    "image-view": "https://macrochan.org/view.php?u=6EUABP4KV52YOVJDVFBOJ3AIBI5NKCNU",
-    "tags": [
-      "Screencap",
-      "The Next Generation"
-    ]
-  }
-]
+```
+# determine amount of rows in table, and calculate where to stop
+# should be 0 for empty database
+c.execute('SELECT COUNT(*) FROM images')
+count = c.fetchall()
+row_amt = count[0][0]
+print("Table 'images' has {} rows.".format(row_amt))
+firstoffset = row_amt - (row_amt % offset)
 ```
 
-Here are the scripts we used to dump metadata to JSON. We used this before we moved to a SQLite database. 
+We can then use this for loop to start off where we left off. Or from the beginning, if there is nothing in the database.
 
 ```python
-# create folders to store JSON
-img_dir = os.path.join(workdir, img_id[:1], img_id[1:2])
-mkdirs(img_dir)
-json_fname = img_id + ".json"
-json_path = os.path.join(img_dir, json_fname)
-
-# construct json for this image
-json_data = [
-	  {
-	    "image-ext": img_ext,
-	    "image-id": img_id,
-	    "image-url": img_url,
-	    "image-view": view_url,
-	    "tags": tags
-	  }
-	]
-
-# save json to file
-with open(json_path, 'w') as json_file:
-	json_file.write(json.dumps(json_data, sort_keys=True, indent=2, separators=(',', ': ')))
+# Make search queries and place image IDs in list
+for i in range(firstoffset, finaloffset + 1, offset):
 ```
+
+This way, if the script stops for any reason, we can just run it again to continue, without needing to provide any arguments.

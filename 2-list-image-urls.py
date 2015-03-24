@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
 	# determine amount of rows in table, and calculate where to stop
 	# should be 0 for empty database
-	c.execute('SELECT COUNT(*) FROM {}'.format("images"))
+	c.execute('SELECT COUNT(*) FROM images')
 	count = c.fetchall()
 	row_amt = count[0][0]
 	print("Table 'images' has {} rows.".format(row_amt))
