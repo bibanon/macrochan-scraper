@@ -29,7 +29,7 @@ from robobrowser import RoboBrowser
 from utils import *
 
 # create a robot browser
-browser = RoboBrowser(history=True)
+browser = RoboBrowser()
 
 if __name__ == '__main__':
 	# check if an argument was given

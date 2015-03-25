@@ -44,7 +44,7 @@ if __name__ == '__main__':
 	offset = 20
 	
 	# create a robot browser
-	browser = RoboBrowser(history=True)
+	browser = RoboBrowser()
 	
 	# connect to the database to store image 
 	conn = sqlite3.connect(db_fname)
