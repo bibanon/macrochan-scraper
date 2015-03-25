@@ -321,13 +321,29 @@ for anchor in browser.find_all('a'):
 		tags.append(parse_qs(urlparse(this_tag).query)['tags'][0])
 ```
 
-Now that we have the full image URL with extensions, we can use Requests to download the image in question. To reduce the strain on file managers, we will put the image into `images/<1st-char>/<2nd-char>/<image-id>.ext`, 
+Now that we have the full image URL with extensions, we can use Requests to download the image in question. To reduce the strain on file managers, we will put the image into `images/<1st-char>/<2nd-char>/<image-id>.ext`. 
 
-Finally, we've obtained both the image file extension, and all of it's tags. Now we need to put it into the database.
+The `download_file()` function is also set to `clobber`, which will overwrite any existing file, just in case the script stopped in the middle of download. 
+
+It also has a try/except that stops the script if download was unsuccessful, preventing the image ID from being added to the SQLite database. That way, SQLite insertion has an auxilary purpose of verification of successful image download.
+
+```python
+# download the images
+# save images to folder `macrochan-dump-*/images/<1st-char>/<2nd-char>/<image-id>.ext`
+img_filename = os.path.join(workdir, "images", img_id[:1], img_id[1:2], img_id, img_ext)
+try:
+	download_file(img_filename, img_url, clobber=True)
+except requests.exceptions.RequestException as e:
+	print("Unable to connect to Macrochan, restore your internet connection.")
+	print("Run this script again to continue where you left off.")
+	sys.exit(1)
+```
+
+Finally, we've now obtained the image file extension, the image itself, and all of it's tags. Now we need to put it into the database.
 
 ### Insert image metadata into Database
 
-Then, we insert the information into the SQLite database (per image).
+We insert the information into the SQLite database (per image).
 
 ```python
 # OR IGNORE used in case we want to continue, and accidentally attempt to insert an entry we already put in
@@ -373,3 +389,43 @@ for i in range(firstoffset, finaloffset + 1, offset):
 ```
 
 This way, if the script stops for any reason, we can just run it again to continue, without needing to provide any arguments.
+
+### Handy SQL Queries
+
+Stuff that might be useful someday.
+
+Note that images should use `NATURAL LEFT OUTER JOIN`, since they may or may not have tags, but should be displayed anyway. But with tags, they must have an image to be useful, so we only need `NATURAL JOIN`.
+
+Show all images with their tag links, whether they have tags or not (value will be "" or NULL), ordered by rowid (which is the order of insertion):
+
+```sqlite
+SELECT imageid, tagname FROM images
+	NATURAL LEFT OUTER JOIN taglink
+	ORDER BY images.rowid;
+```
+
+Show all tags with their linked images. Ordered alphabetically.
+
+```sqlite
+SELECT tagname, imageid FROM tags
+	NATURAL JOIN taglink
+	ORDER BY tagname;
+```
+
+Find all tags applied to a single imageid (e.g. `4FFJSWB4T5MFYZSNFFJQG6W2W5XOVVDS`), whether they have tags or not:
+
+```sqlite
+SELECT imageid, tagname FROM images
+	NATURAL LEFT OUTER JOIN taglink
+	WHERE imageid = '4FFJSWB4T5MFYZSNFFJQG6W2W5XOVVDS'
+	ORDER BY tagname;
+```
+
+Find all images that have a certain tag (e.g. `You're doing it wrong`). Sort alphabetically by `imageid`.
+
+```sqlite
+SELECT tagname, imageid FROM tags
+	NATURAL JOIN taglink
+	WHERE tagname="You're doing it wrong"
+	ORDER BY imageid;
+```

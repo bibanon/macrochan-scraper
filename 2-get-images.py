@@ -67,7 +67,7 @@ if __name__ == '__main__':
 	c.execute('SELECT COUNT(*) FROM images WHERE imageext IS NOT NULL')
 	count = c.fetchall()
 	row_amt = count[0][0]
-	print("Starting at {} on table 'images'.".format(row_amt))
+	print("Starting at {} on table 'images'.".format(row_amt + 1))
 	start = row_amt
 
 	# read each img_id from the database
@@ -79,14 +79,15 @@ if __name__ == '__main__':
 		url = view_url % img_id
 
 		# inform user of progress
-		print("Obtaining Image Download URL # {}: {}".format(index, url))
+		print("Obtaining Image Download URL # {}: {}".format(index + 1, url))
 
 
 		# open the webpage, check for connection error
 		try:
 			browser.open(url)
 		except requests.exceptions.RequestException as e:
-			print(e)
+			print("Unable to connect to Macrochan, restore your internet connection.")
+			print("Run this script again to continue where you left off.")
 			sys.exit(1)
 
 		# beautifulsoup - find first <img src=> HTML tag of main image to obtain file extension
@@ -102,6 +103,16 @@ if __name__ == '__main__':
 				# extract tag strings from tag urls
 				# http://macrochan.org/search.php?tags=Motivational+Poster
 				tags.append(parse_qs(urlparse(this_tag).query)['tags'][0])
+		
+		# download the images
+		# save images to folder `macrochan-dump-*/images/<1st-char>/<2nd-char>/<image-id>.ext`
+		img_filename = os.path.join(workdir, "images", img_id[:1], img_id[1:2], img_id + img_ext)
+		try:
+			download_file(img_filename, img_url, clobber=True)
+		except requests.exceptions.RequestException as e:
+			print("Unable to connect to Macrochan, restore your internet connection.")
+			print("Run this script again to continue where you left off.")
+			sys.exit(1)
 		
 		# add img_ext and img_url to current img_id in database
 		list = [img_ext, img_url, img_id]
