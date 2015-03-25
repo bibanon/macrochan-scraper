@@ -1,6 +1,6 @@
 Here are some old tactics we used to use, but no longer need now. However, they might be useful in the future.
 
-### Ghost.py
+## Ghost.py
 
 For some sites, when obtaining the HTML, we encounter a dilemma. Sometimes the data we need is procedurally generated with Javascript. This is a big issue, since it requires an entire Javascript engine (like on your hulking browser) to generate, more than what `requests` or `urllib` can provide.
 
@@ -42,8 +42,48 @@ for (var i=0; i<links.length; i++){
 }
 listRet;            // return list to python as `img_ids` list
 ```
+
+### 2-list-images.py
+
+I use the following javascript on Ghost.py to obtain all the image URLs, and extensions:
+
+```js
+var listRet = [];   // empty list
+// grab all `<img src=>` tags with `view`
+var links = document.querySelectorAll("img[src*=images]");
+// loop to check every link
+for (var i=0; i<links.length; i++){
+	// return src= links
+	listRet.push(links[i].src);
+}
+listRet;            // return list
+```
+
+Then, this javascript is used to obtain all tags:
+
+```js
+var listRet = [];   // empty list
+// grab all `<a href=>` tags with `tags`
+var links = document.querySelectorAll("a[href*=tags]");
+
+// loop to check every link
+for (var i=0; i<links.length; i++){
+	// return href= links
+	listRet.push(links[i].href);
+}
+listRet;            // return list
+```
+
+To grab the pure tag names, and get rid of the rest of the URL, we use `urllib.parse`:
+
+```python
+# extract tag strings from tag urls
+tags = []
+for tag_url in tag_urls[0]:
+	tags.append(parse_qs(urlparse(tag_url).query)['tags'][0])	
+```
  
-### Create JSON Metadata
+## Create JSON Metadata
 
 > **Note:** Since we use a SQLite database, there is no need for flat file JSON metadata anymore, which can be difficult to update. If we do create a website in the future, just procedurally generate the JSON from the database, just like an API.
 

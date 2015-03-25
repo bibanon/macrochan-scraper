@@ -21,14 +21,16 @@ import json
 import os
 import time
 import sqlite3
-import re
-import sys
+import requests
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
-from robobrowser import RoboBrowser
+from ghost import Ghost
 
 # our own libraries
 from utils import *
+
+# save bandwidth by not loading images through ghost
+ghost = Ghost(download_images=False)
 
 # Make a list of all image download links using img_ids
 if __name__ == '__main__':
@@ -37,20 +39,16 @@ if __name__ == '__main__':
 	mkdirs(workdir)				# ensure that the workdir exists
 	site_url = "https://macrochan.org/search.php?&offset=%s"
 	view_url = "https://macrochan.org/view.php?u=%s"
-	macrochan_url = "https://macrochan.org"
 	img_down_url = "https://macrochan.org/images/%s/%s/%s"
 	db_fname = os.path.join(workdir, 'macrochan.db' )		# filename of database
 	delay = 5		# currently set to 5 seconds by default
 	offset = 20
 	
-	# create a robot browser
-	browser = RoboBrowser(history=True)
-	
 	# connect to the database to store image 
 	conn = sqlite3.connect(db_fname)
 	c = conn.cursor()
 
-	# sql query to obtain all imageids from database sorted by rowid, store as list for later
+	# sql query to obtain all imageids from database sorted by rowid
 	c.execute('SELECT imageid FROM images ORDER BY rowid')
 	data = c.fetchall()
 
@@ -60,7 +58,7 @@ if __name__ == '__main__':
 	count = c.fetchall()
 	row_amt = count[0][0]
 	print("Table 'images' has {} rows.".format(row_amt))
-	stop = row_amt
+	stop = row_amt - (row_amt % offset)
 
 	# determine amount of rows in table with imageext, and calculate where to start
 	# should be 0 at beginning
@@ -68,40 +66,63 @@ if __name__ == '__main__':
 	count = c.fetchall()
 	row_amt = count[0][0]
 	print("Starting at {} on table 'images'.".format(row_amt))
-	start = row_amt
+	start = row_amt - (row_amt % offset)
 
 	# read each img_id from the database
-	for index in range(start, stop):
-		# SQL queries are stored in tuples of tuples, only need first value of each query
-		img_id = data[index][0]
+	for index, row in enumerate(data):
+		# SQL queries are stored in tuples, only need first value 
+		img_id = row[0]
+
+		# inform user of progress
+		print("Obtaining Image Download URL # %d:" % index + 1, view_url % img_id)
 
 		# set URL by img_id
 		url = view_url % img_id
 
-		# inform user of progress
-		print("Obtaining Image Download URL # {}: {}".format(index, url))
+		# open the webpage
+		page = ghost.open(url)
 
+		# retrieve all img links
+		img_urls = ghost.evaluate("""
+								var listRet = [];   // empty list
+								// grab all `<img src=>` tags with `view`
+								var links = document.querySelectorAll("img[src*=images]");
+								
+								// loop to check every link
+								for (var i=0; i<links.length; i++){
+									// return src= links
+									listRet.push(links[i].src);
+								}
+								listRet;            // return list
+								""")
+		
+		# open the file and save the link to it
+		img_url = ""		# storing first img_url for JSON dumping
+		img_ext = ""		# storing image file extension for JSON dumping
+		with open(img_url_fname, 'a') as url_file:
+			for line in img_urls[0]:
+				img_url = line
+				temp_url, img_ext = os.path.splitext(img_url)
+				url_file.write("%s\n" % img_url)
 
-		# open the webpage, check for connection error
-		try:
-			browser.open(url)
-		except requests.exceptions.RequestException as e:
-			print(e)
-			sys.exit(1)
-
-		# beautifulsoup - find first <img src=> HTML tag of main image to obtain file extension
-		img_url = macrochan_url + browser.find('img').get('src', '/')
-		img_ext = os.path.splitext(img_url)[1]
-
-		# beautifulsoup - find all <a href=> HTML tags that contain image tags
+		# scrape tags from image view URL and dump to <image-id>.json
+		tag_urls = ghost.evaluate("""
+				var listRet = [];   // empty list
+				// grab all `<a href=>` tags with `tags`
+				var links = document.querySelectorAll("a[href*=tags]");
+				
+				// loop to check every link
+				for (var i=0; i<links.length; i++){
+					// return href= links
+					listRet.push(links[i].href);
+				}
+				listRet;            // return list
+				""")
+		
+		# extract tag strings from tag urls
 		tags = []
-		tag_regex = re.compile(r"tags")
-		for anchor in browser.find_all('a'):
-			this_tag = anchor.get('href', '/')
-			if (re.search(tag_regex, this_tag)):
-				# extract tag strings from tag urls
-				# http://macrochan.org/search.php?tags=Motivational+Poster
-				tags.append(parse_qs(urlparse(this_tag).query)['tags'][0])
+		for tag_url in tag_urls[0]:
+			tags.append(parse_qs(urlparse(tag_url).query)['tags'][0])	
 		
 		# add img_ext and img_url to current img_id in database
 		list = [img_ext, img_url, img_id]

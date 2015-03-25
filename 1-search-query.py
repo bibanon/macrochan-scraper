@@ -68,7 +68,7 @@ if __name__ == '__main__':
 	firstoffset = row_amt - (row_amt % offset)
 
 	# Make search queries and place image IDs in list
-	for i in range(firstoffset, finaloffset + 1, offset):				# for loop, jumps by offset
+	for i in range(firstoffset, finaloffset, offset):				# for loop, jumps by offset
 		# inform user of progress, in which section
 		print("Downloading offset: %d-%d" % (i + 1, i + offset) )
 

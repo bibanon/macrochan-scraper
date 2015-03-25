@@ -4,35 +4,52 @@ from urllib.parse import parse_qs
 import os
 import re
 
-# create a robot browser
-browser = RoboBrowser(history=True)
+if __name__ == '__main__':
 
-"""1 - Grab Search Query"""
+	# create a robot browser
+	browser = RoboBrowser(history=True)
 
-# set URL to grab
-url = "http://macrochan.org/search.php?&offset=0"
+	"""1 - Grab Search Query"""
 
-# open the webpage
-browser.open(url)
+	# set URL to grab
+	url = "http://macrochan.org/search.php?&offset=0"
 
-# beautifulsoup - find all <a href=> HTML tags that are views
-view_regex = re.compile(r"view")
-for anchor in browser.find_all('a'):
-	view_url = anchor.get('href', '/')
-	if (re.search(view_regex, view_url)):
-		print(parse_qs(urlparse(view_url).query)['u'][0])
+	# open the webpage
+	browser.open(url)
 
-"""2 - Grab image links"""
+	# beautifulsoup - find all <a href=> HTML tags that are views
+	view_regex = re.compile(r"view")
+	for anchor in browser.find_all('a'):
+		view_url = anchor.get('href', '/')
+		if (re.search(view_regex, view_url)):
+			print(parse_qs(urlparse(view_url).query)['u'][0])
 
-# set URL to grab
-url = "http://macrochan.org/view.php?u=JNTW3GWLMYDGS7NLSLZTHGKGPNA3OHN3"
+	"""2 - Grab image links"""
 
-# open the webpage
-browser.open(url)
-    
-# beautifulsoup - find all <img src=> HTML tags that are main images
-img_regex = re.compile(r"images")
-for anchor in browser.find_all('img'):
-	img_tag = anchor.get('src', '/')
-	if (re.search(img_regex, img_tag)):
-		print(os.path.basename(img_tag))
+	# set URL to grab
+	url = "http://macrochan.org/view.php?u=JNTW3GWLMYDGS7NLSLZTHGKGPNA3OHN3"
+
+	# open the webpage
+	browser.open(url)
+		
+	# beautifulsoup - find all <img src=> HTML tags that are main images
+	img_down_url_sml = "https://macrochan.org"
+	img_url = browser.find('img').get('src', '/')
+	print(img_down_url_sml + img_url)
+	print(os.path.splitext(img_url)[1])
+			
+	"""3 - Grab Image Tags"""
+
+	# set URL to grab
+	url = "http://macrochan.org/view.php?u=HS4I4BGZ3VWZXMRMIY7AWFW6ZZ6HCNDT"
+
+	# open the webpage
+	browser.open(url)
+		
+	# beautifulsoup - find all <a href=> HTML tags that contain image tags
+	tag_regex = re.compile(r"tags")
+	for anchor in browser.find_all('a'):
+		this_tag = anchor.get('href', '/')
+		if (re.search(tag_regex, this_tag)):
+			print(parse_qs(urlparse(this_tag).query)['tags'][0])
+			

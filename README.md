@@ -228,16 +228,29 @@ for i in range(0, finaloffset + 1, offset):
 
 To obtain the image ids, we use [RoboBrowser](https://github.com/jmcarp/robobrowser), which combines Requests and BeautifulSoup into a browser for robot scrapers.
 
-Then, we dump the `img_ids` list into a flat file for the next program to access.
-
 ```python
-# open the file and save links to it
-with open("img_ids.txt", 'a') as id_file:
-	for line in img_ids[0]:
-		id_file.write("%s\n" % line) 
+		# set URL by offset
+		url = site_url % str(i)
+
+		# open the webpage
+		browser.open(url)
+
+		# beautifulsoup - find all <a href=> HTML tags that are views
+		view_regex = re.compile(r"view")
+		for anchor in browser.find_all('a'):
+			view_tag = anchor.get('href', '/')
+			if (re.search(view_regex, view_tag)):
+				# obtain img_id from `?u=`
+				img_id = parse_qs(urlparse(view_tag).query)['u'][0]
+				# we don't know imageext or imageurl yet, so send NULL
+				list = [img_id, None, None, view_url % img_id]
+				c.execute('INSERT OR IGNORE INTO images (imageid, imageext, imageurl, imageview) VALUES (?,?,?,?)', list)
+
+		# save changes to database when finished
+		conn.commit()
 ```
 
-Alternatively, a better way might be to put the URLs straight into a SQLite database. This makes it possible to continue dumping where we left off by counting the amount of `row_id` values (so we don't have to start over from the beginning, which often means hours of work).
+Then, we dump the `img_ids` list into a SQLite database. This makes it possible to continue dumping where we left off by counting the amount of `row_id` values (so we don't have to start over from the beginning, which often means hours of work).
 
 Finally, we put a delay between iterations to reduce strain on the server. Web Crawling can be a major drain on bandwidth (and thus operation costs), so you should do your best to show respect for the website you are lovingly archiving. 
 
@@ -259,43 +272,56 @@ Once we have all the image ids, we now need to obtain two more things:
 
 We can find these by parsing the URL `https://macrochan.org/view.php?u=<image-id>`, which contains the image url with the file extension, and the tags used on that image.
 
-I use the following javascript on Ghost.py to obtain all the image URLs, and extensions:
-
-```js
-var listRet = [];   // empty list
-// grab all `<img src=>` tags with `view`
-var links = document.querySelectorAll("img[src*=images]");
-// loop to check every link
-for (var i=0; i<links.length; i++){
-	// return src= links
-	listRet.push(links[i].src);
-}
-listRet;            // return list
-```
-
-Then, this javascript is used to obtain all tags:
-
-```js
-var listRet = [];   // empty list
-// grab all `<a href=>` tags with `tags`
-var links = document.querySelectorAll("a[href*=tags]");
-
-// loop to check every link
-for (var i=0; i<links.length; i++){
-	// return href= links
-	listRet.push(links[i].href);
-}
-listRet;            // return list
-```
-
-To grab the pure tag names, and get rid of the rest of the URL, we use `urllib.parse`:
+In order to make it possible to continue, from the SQLite database, we query the amount of rows as before, to set the end point. We also query the amount of `imageext` fields filled, to set the start point.
 
 ```python
-# extract tag strings from tag urls
-tags = []
-for tag_url in tag_urls[0]:
-	tags.append(parse_qs(urlparse(tag_url).query)['tags'][0])	
+# determine amount of rows in table, and calculate where to stop
+# should be 0 for empty database
+c.execute('SELECT COUNT(*) FROM images')
+count = c.fetchall()
+row_amt = count[0][0]
+print("Table 'images' has {} rows.".format(row_amt))
+stop = row_amt
+
+# determine amount of rows in table with imageext, and calculate where to start
+# should be 0 at beginning
+c.execute('SELECT COUNT(*) FROM images WHERE imageext IS NOT NULL')
+count = c.fetchall()
+row_amt = count[0][0]
+print("Starting at {} on table 'images'.".format(row_amt))
+start = row_amt
 ```
+
+First, we open the webpage using robobrowser:
+
+```python
+# open the webpage
+browser.open(url)
+```
+
+I then use the following beautifulsoup function on the HTML to obtain all the image URLs, and extensions:
+
+```python
+# beautifulsoup - find first <img src=> HTML tag of main image to obtain file extension
+img_url = macrochan_url + browser.find('img').get('src', '/')
+img_ext = os.path.splitext(img_url)[1]
+```
+
+Finally, we need to grab all tags from the image view HTML and put it into a list. We use this BeautifulSoup loop, with regex to find tag URLs. Then we use `urlparse.parse_qs` to grab the tag name out of the URL.
+
+```python
+# beautifulsoup - find all <a href=> HTML tags that contain image tags
+tags = []
+tag_regex = re.compile(r"tags")
+for anchor in browser.find_all('a'):
+	this_tag = anchor.get('href', '/')
+	if (re.search(tag_regex, this_tag)):
+		# extract tag strings from tag url
+		# http://macrochan.org/search.php?tags=Motivational+Poster
+		tags.append(parse_qs(urlparse(this_tag).query)['tags'][0])
+```
+
+Now that we have the full image URL with extensions, we can use Requests to download the image in question. To reduce the strain on file managers, we will put the image into `images/<1st-char>/<2nd-char>/<image-id>.ext`, 
 
 Finally, we've obtained both the image file extension, and all of it's tags. Now we need to put it into the database.
 
