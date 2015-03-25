@@ -40,7 +40,7 @@ if __name__ == '__main__':
 		sys.exit(1)
 
 	# default parameters
-	workdir = os.path.join(os.getcwd(), "macrochan-dump-" + time.strftime('%Y-%m-%d'))	# labeled with today's date
+	workdir = os.path.join(os.getcwd(), "macrochan-dump")
 	mkdirs(workdir)				# ensure that the workdir exists
 	site_url = "https://macrochan.org/search.php?&offset=%s"
 	view_url = "https://macrochan.org/view.php?u=%s"

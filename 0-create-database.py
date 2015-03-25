@@ -9,7 +9,6 @@
 # into one.
 
 import os
-import time
 import sqlite3
 
 # our own libraries
@@ -17,7 +16,7 @@ from utils import *
 
 if __name__ == '__main__':
 	# current working directory
-	workdir = os.path.join(os.getcwd(), "macrochan-dump-" + time.strftime('%Y-%m-%d'))	# labeled with today's date
+	workdir = os.path.join(os.getcwd(), "macrochan-dump")
 	mkdirs(workdir)				# ensure that the workdir exists
 	# filename of database
 	db_fname = os.path.join(workdir, 'macrochan.db')

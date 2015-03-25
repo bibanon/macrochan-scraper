@@ -21,7 +21,7 @@ search-query:
 
 # step 2: obtain image URLs
 image-urls:
-	python3 2-list-image-urls.pyh
+	python3 2-get-images.pyh
 
 # delete all dump folders
 clean:
