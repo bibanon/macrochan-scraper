@@ -31,7 +31,7 @@ from utils import *
 # create a robot browser
 browser = RoboBrowser()
 
-if __name__ == '__main__':
+def main():
 	# check if an argument was given
 	if(len(sys.argv) < 2):
 		print("Please provide the total amount of images on Macrochan.")
@@ -99,3 +99,6 @@ if __name__ == '__main__':
 	# close the database at the end of loop
 	c.close()
 	print("Dump complete. Now run 2-list-image-urls.py .")
+
+if __name__ == '__main__':
+	main()

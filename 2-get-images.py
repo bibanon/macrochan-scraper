@@ -31,7 +31,7 @@ from robobrowser import RoboBrowser
 from utils import *
 
 # Make a list of all image download links using img_ids
-if __name__ == '__main__':
+def main():
 	# default parameters
 	workdir = os.path.join(os.getcwd(), "macrochan-dump")
 	mkdirs(workdir)				# ensure that the workdir exists
@@ -141,3 +141,12 @@ if __name__ == '__main__':
 
 	# close sqlite database once finished
 	conn.close()
+
+if __name__ == '__main__':
+	# retry loop: in case of failure or timeout, wait 60 sec. and try again
+	# by default, try 5 times
+	for i in range(1, 5):
+		print("Attempt {}:".format(i))
+		main()
+		print("Restarting script in {} seconds...".format())
+		time.delay(60)
