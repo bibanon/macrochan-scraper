@@ -44,7 +44,9 @@ if __name__ == '__main__':
 
 	# create tags table
 	c.execute('''CREATE TABLE tags (
-	  tagname text PRIMARY KEY
+	tagname text PRIMARY KEY,
+	parent text,
+	FOREIGN KEY(parent) REFERENCES tagname
 	)''')
 
 	# create linking table
