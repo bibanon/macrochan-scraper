@@ -23,8 +23,9 @@ workdir = os.path.join(os.getcwd(), "macrochan-dump")
 mkdirs(workdir)				# ensure that the workdir exists
 # filename of database
 db_fname = os.path.join(workdir, 'macrochan.db')
-tagtree_fname = os.path.join(workdir, 'tagtree.html')
-tagtree_clickable_fname = os.path.join(workdir, 'tagtree-clickable.html')
+tagtree_dir = os.path.join(workdir, 'tagtree')
+tagtree_fname = os.path.join(tagtree_dir, 'tagtree.html')
+tagtree_clickable_fname = os.path.join(tagtree_dir, 'tagtree-clickable.html')
 json_fname = os.path.join(workdir, 'tagtree-ancestors.json')
 
 def main():
